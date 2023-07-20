@@ -4,6 +4,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const express = require('express');
 const mongoose = require('mongoose');
+const mongoSanitize = require('express-mongo-sanitize');
 const path = require('path');
 const ejsMate = require('ejs-mate');
 const session = require('express-session');
@@ -14,6 +15,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local');
 const User = require('./models/user');
 const app = express();
+const helmet = require('helmet');
 
 const userRouters = require('./routes/users');
 const campgroundsRoutes = require('./routes/campgrounds');
@@ -26,6 +28,12 @@ db.once('open', () => {
     console.log('Database connected');
 });
 
+const scriptSrcUrls = ['https://stackpath.bootstrapcdn.com/', 'https://api.tiles.mapbox.com/', 'https://api.mapbox.com/', 'https://kit.fontawesome.com/', 'https://cdnjs.cloudflare.com/', 'https://cdn.jsdelivr.net'];
+//This is the array that needs added to
+const styleSrcUrls = ['https://kit-free.fontawesome.com/', 'https://api.mapbox.com/', 'https://api.tiles.mapbox.com/', 'https://fonts.googleapis.com/', 'https://use.fontawesome.com/', 'https://cdn.jsdelivr.net'];
+const connectSrcUrls = ['https://api.mapbox.com/', 'https://a.tiles.mapbox.com/', 'https://b.tiles.mapbox.com/', 'https://events.mapbox.com/'];
+const fontSrcUrls = [];
+
 app.engine('ejs', ejsMate);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -33,9 +41,32 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 app.use(flash());
+app.use(mongoSanitize());
+app.use(
+    helmet.contentSecurityPolicy({
+        directives: {
+            defaultSrc: [],
+            connectSrc: ["'self'", ...connectSrcUrls],
+            scriptSrc: ["'unsafe-inline'", "'self'", ...scriptSrcUrls],
+            styleSrc: ["'self'", "'unsafe-inline'", ...styleSrcUrls],
+            workerSrc: ["'self'", 'blob:'],
+            objectSrc: [],
+            imgSrc: [
+                "'self'",
+                'blob:',
+                'data:',
+                'https://res.cloudinary.com/dcsgbs34t/', //SHOULD MATCH YOUR CLOUDINARY ACCOUNT!
+                'https://images.unsplash.com/',
+            ],
+            fontSrc: ["'self'", ...fontSrcUrls],
+        },
+    })
+);
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(
     session({
+        name: 'session',
         secret: 'thishouldbeabettersecret!',
         resave: false,
         saveUninitialized: true,
@@ -54,6 +85,7 @@ passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
 app.use((req, res, next) => {
+    console.log(req.query);
     res.locals.currentUser = req.user;
     res.locals.success = req.flash('success');
     res.locals.error = req.flash('error');
