@@ -16,6 +16,9 @@ const LocalStrategy = require('passport-local');
 const User = require('./models/user');
 const app = express();
 const helmet = require('helmet');
+const MongoStore = require('connect-mongo');
+const dbUrl = process.env.DB_URL;
+//const dbUrl = 'mongodb://localhost:27017/yelp-camp';
 
 const userRouters = require('./routes/users');
 const campgroundsRoutes = require('./routes/campgrounds');
@@ -29,10 +32,21 @@ db.once('open', () => {
 });
 
 const scriptSrcUrls = ['https://stackpath.bootstrapcdn.com/', 'https://api.tiles.mapbox.com/', 'https://api.mapbox.com/', 'https://kit.fontawesome.com/', 'https://cdnjs.cloudflare.com/', 'https://cdn.jsdelivr.net'];
-//This is the array that needs added to
 const styleSrcUrls = ['https://kit-free.fontawesome.com/', 'https://api.mapbox.com/', 'https://api.tiles.mapbox.com/', 'https://fonts.googleapis.com/', 'https://use.fontawesome.com/', 'https://cdn.jsdelivr.net'];
 const connectSrcUrls = ['https://api.mapbox.com/', 'https://a.tiles.mapbox.com/', 'https://b.tiles.mapbox.com/', 'https://events.mapbox.com/'];
 const fontSrcUrls = [];
+
+const store = MongoStore.create({
+    mongoUrl: dbUrl,
+    touchAfter: 24 * 60 * 60,
+    crypto: {
+        secret: 'thisshouldbeabettersecret!',
+    },
+});
+
+store.on('error', function (e) {
+    console.log('Session store error', e);
+});
 
 app.engine('ejs', ejsMate);
 app.set('view engine', 'ejs');
@@ -66,6 +80,7 @@ app.use(
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(
     session({
+        store,
         name: 'session',
         secret: 'thishouldbeabettersecret!',
         resave: false,
